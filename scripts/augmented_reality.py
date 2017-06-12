@@ -55,28 +55,28 @@ class image_feature:
         #### direct conversion to CV2 ####
         np_arr = np.fromstring(ros_data.data, np.uint8)
         image_np = cv2.imdecode(np_arr, cv2.CV_LOAD_IMAGE_COLOR)
-        
-        #### Feature detectors using CV2 #### 
-        # "","Grid","Pyramid" + 
-        # "FAST","GFTT","HARRIS","MSER","ORB","SIFT","STAR","SURF"
-        method = "GridFAST"
-        feat_det = cv2.FeatureDetector_create(method)
+
+        # Init
         time1 = time.time()
 
         # convert np image to grayscale
-        featPoints = feat_det.detect(
-            cv2.cvtColor(image_np, cv2.COLOR_BGR2GRAY))
-        time2 = time.time()
-        if VERBOSE :
-            print '%s detector found: %s points in: %s sec.'%(method,
-                len(featPoints),time2-time1)
+        gray = cv2.cvtColor(image_np,cv2.COLOR_BGR2GRAY)
 
-        for featpoint in featPoints:
-            x,y = featpoint.pt
-            cv2.circle(image_np,(int(x),int(y)), 3, (0,0,255), -1)
-        
+        # Detect pattern (chessboard)
+        ret, corners = cv2.findChessboardCorners(gray, (5,4), None) 
+        time2 = time.time()
+
+        # If pattern is detected
+        if ret == True:
+            print "Chess found"
+            x = corners[0][0][0]
+            y = corners[0][0][1]
+            cv2.circle(image_np,(int(x),int(y)), 8, (0,0,255), -1)
+        else:
+            print "No chess found"
+
         cv2.imshow('cv_img', image_np)
-        cv2.waitKey(2)
+        cv2.waitKey(50)
 
         #### Create CompressedIamge ####
         msg = CompressedImage()
@@ -85,8 +85,7 @@ class image_feature:
         msg.data = np.array(cv2.imencode('.jpg', image_np)[1]).tostring()
         # Publish new image
         self.image_pub.publish(msg)
-        
-        #self.subscriber.unregister()
+
 
 def main(args):
     '''Initializes and cleanup ros node'''
