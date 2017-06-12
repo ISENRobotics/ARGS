@@ -2,16 +2,16 @@
 
 ## Launch :
 Environment on PC:  
-export ROS_MASTER_URI=http://IP_ROBOT:PORT_ROBOT
-export ROS_HOSTNAME=IP_PC
+export ROS_MASTER_URI=http://IP_ROBOT:PORT_ROBOT  
+export ROS_HOSTNAME=IP_PC  
 
 Environment on robot:  
-export ROS_MASTER_URI=http://IP_ROBOT:PORT_ROBOT
-export ROS_HOSTNAME=IP_ROBOT
+export ROS_MASTER_URI=http://IP_ROBOT:PORT_ROBOT  
+export ROS_HOSTNAME=IP_ROBOT  
 
 On the robot:  
-roslaunch turtlebot_bringup minimal.launch // this line starts the roscore
-roslaunch turtlebot_bringup 3dsensor.launch // this line starts the kinect
+roslaunch turtlebot_bringup minimal.launch // this line starts the roscore  
+roslaunch turtlebot_bringup 3dsensor.launch // this line starts the kinect  
 
 On the PC:  
 python srcipt/augmented_reality.py
