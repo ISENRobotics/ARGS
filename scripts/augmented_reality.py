@@ -37,13 +37,13 @@ criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 objp = np.zeros((4*5,3), np.float32)
 objp[:,:2] = np.mgrid[0:5,0:4].T.reshape(-1,2)
 
-axis = np.float32([[3,0,0], [0,3,0], [0,0,-3]]).reshape(-1,3)
+axis = np.float32([[3,0,0], [0,3,0], [0,0,0]]).reshape(-1,3)
 
 def draw(img, corners, imgpts):
     corner = tuple(corners[0].ravel())
     cv2.line(img, corner, tuple(imgpts[0].ravel()), (255,0,0), 3)
     cv2.line(img, corner, tuple(imgpts[1].ravel()), (0,255,0), 3)
-    cv2.line(img, corner, tuple(imgpts[2].ravel()), (0,0,255), 3)
+    cv2.line(img, corner, tuple(imgpts[2].ravel()), (0,0,255), 0)
 
 
 
@@ -63,7 +63,7 @@ class image_feature:
         self.subscriber = rospy.Subscriber("/camera/rgb/image_color/compressed",
             CompressedImage, self.callback,  queue_size = 1)
         if VERBOSE :
-            print "subscribed to /camera/rgb/image_color/compressed"
+            print "subscribed to /camera/rgb/image_color/raw"
 
 
     def callback(self, ros_data):
@@ -107,7 +107,14 @@ class image_feature:
             # project 3D points to image plane
             imgpts, jac = cv2.projectPoints(axis, self.camera_rvecs, self.camera_tvecs, self.camera_mtx, self.camera_dist)
 
+            # Save
+            self.previous_corners = corners
+            self.previous_imgpts = imgpts
+
             draw(image_np,corners,imgpts)
+        else:
+            if (self.initialized == 1):
+                draw(image_np,self.previous_corners,self.previous_imgpts)
 
         # Draw and display the corners
         cv2.imshow('cv_img', image_np)
