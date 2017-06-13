@@ -51,6 +51,8 @@ class image_feature:
 
     def __init__(self):
 
+        self.initialized = 0;
+
         '''Initialize ros publisher, ros subscriber'''
         # topic where we publish
         self.image_pub = rospy.Publisher("/output/image_raw/compressed",
@@ -95,19 +97,21 @@ class image_feature:
             cv2.cornerSubPix(gray,corners,(11,11),(-1,-1),criteria)
             imgpoints.append(corners)
 
-            ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1],None,None)
+            if (self.initialized == 0):
+                self.initialized = 1;
+                ret, self.camera_mtx, self.camera_dist, self.camera_rvecs, self.camera_tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1],None,None)
 
             # Find the rotation and translation vectors.
-            rvecs, tvecs, inliers = cv2.solvePnPRansac(objp, corners, mtx, dist)
+            self.camera_rvecs, self.camera_tvecs, inliers = cv2.solvePnPRansac(objp, corners, self.camera_mtx, self.camera_dist)
 
             # project 3D points to image plane
-            imgpts, jac = cv2.projectPoints(axis, rvecs, tvecs, mtx, dist)
+            imgpts, jac = cv2.projectPoints(axis, self.camera_rvecs, self.camera_tvecs, self.camera_mtx, self.camera_dist)
 
             draw(image_np,corners,imgpts)
 
-            # Draw and display the corners
-            cv2.imshow('cv_img', image_np)
-            cv2.waitKey(50)
+        # Draw and display the corners
+        cv2.imshow('cv_img', image_np)
+        cv2.waitKey(100)
 
         #### Create CompressedIamge ####
         msg = CompressedImage()
