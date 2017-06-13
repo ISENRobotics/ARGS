@@ -134,7 +134,8 @@ class image_feature:
 
     def __init__(self):
 
-        self.initialized = 0;
+        self.initialized = 0
+        self.last_treatment = 0
 
         '''Initialize ros publisher, ros subscriber'''
         # topic where we publish
@@ -159,42 +160,50 @@ class image_feature:
         np_arr = np.fromstring(ros_data.data, np.uint8)
         image_np = cv2.imdecode(np_arr, cv2.CV_LOAD_IMAGE_COLOR)
 
-        # Arrays to store object points and image points from all the images.
-        objpoints = [] # 3d point in real world space
-        imgpoints = [] # 2d points in image plane.
+        # Treat only image after img_treatment_freq (in ns) passed
+        now = rospy.Time.now()
+        now_ns = 1000000000 * now.secs + now.nsecs # time in ns
+        img_treatment_freq = 100000000 # 100 ms
+        if( now_ns - self.last_treatment >= img_treatment_freq ):
+            # Arrays to store object points and image points from all the images.
+            objpoints = [] # 3d point in real world space
+            imgpoints = [] # 2d points in image plane.
 
-        # convert np image to grayscale
-        gray = cv2.cvtColor(image_np,cv2.COLOR_BGR2GRAY)
+            # convert np image to grayscale
+            gray = cv2.cvtColor(image_np,cv2.COLOR_BGR2GRAY)
 
-        # Detect pattern (chessboard)
-        ret, corners = cv2.findChessboardCorners(gray, (chessHeight,chessWidth), None) 
+            # Detect pattern (chessboard)
+            ret, corners = cv2.findChessboardCorners(gray, (chessHeight,chessWidth), None) 
 
-        # If found, add object points, image points (after refining them)
-        if ret == True:
-            objpoints.append(objp)
+            # If found, add object points, image points (after refining them)
+            if ret == True:
+                objpoints.append(objp)
 
-            cv2.cornerSubPix(gray,corners,(11,11),(-1,-1),criteria)
-            imgpoints.append(corners)
+                cv2.cornerSubPix(gray,corners,(11,11),(-1,-1),criteria)
+                imgpoints.append(corners)
 
-            if (self.initialized == 0):
-                self.initialized = 1;
-                ret, self.camera_mtx, self.camera_dist, self.camera_rvecs, self.camera_tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1],None,None)
+                if (self.initialized == 0):
+                    self.initialized = 1;
+                    ret, self.camera_mtx, self.camera_dist, self.camera_rvecs, self.camera_tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1],None,None)
 
-            # Find the rotation and translation vectors.
-            self.camera_rvecs, self.camera_tvecs, inliers = cv2.solvePnPRansac(objp, corners, self.camera_mtx, self.camera_dist)
+                # Find the rotation and translation vectors.
+                self.camera_rvecs, self.camera_tvecs, inliers = cv2.solvePnPRansac(objp, corners, self.camera_mtx, self.camera_dist)
 
-            # project 3D points to image plane
-            imgpts, jac = cv2.projectPoints(axis, self.camera_rvecs, self.camera_tvecs, self.camera_mtx, self.camera_dist)
+                # project 3D points to image plane
+                imgpts, jac = cv2.projectPoints(axis, self.camera_rvecs, self.camera_tvecs, self.camera_mtx, self.camera_dist)
 
-            self.previous_corners = corners
-            self.previous_imgpts = imgpts
+                self.previous_corners = corners
+                self.previous_imgpts = imgpts
+
+                # Save last treatment
+                self.last_treatment = now_ns
 
         if (self.initialized == 1):
             draw(image_np,self.previous_corners,self.previous_imgpts)
 
         # Draw and display the corners
         cv2.imshow('cv_img', image_np)
-        cv2.waitKey(100)
+        cv2.waitKey(5)
 
         #### Create CompressedIamge ####
         msg = CompressedImage()
