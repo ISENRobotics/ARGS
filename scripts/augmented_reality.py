@@ -33,38 +33,55 @@ VERBOSE=False
 # termination criteria
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
+chessWidth = 4
+chessHeight = 5
+
 # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
-objp = np.zeros((4*5,3), np.float32)
-objp[:,:2] = np.mgrid[0:5,0:4].T.reshape(-1,2)
+objp = np.zeros((chessWidth*chessHeight,3), np.float32)
+objp[:,:2] = np.mgrid[0:chessHeight,0:chessWidth].T.reshape(-1,2)
 
 axis = np.float32([[1,0,0], [0,1,0], [0,0,1]]).reshape(-1,3)
 
 
 def draw(img, corners, imgpts):
     lineWidth = 2
-    lineLenght = 6
+    lineLenght = 3
     borderColor = (154,18,179)
     corner = tuple(corners[0].ravel())
 
-    cv2.line(img, corner, tuple(imgpts[0].ravel()), borderColor, lineWidth)
-    cv2.line(img, corner, tuple(imgpts[1].ravel()), borderColor, lineWidth)
-
+    # x and y of the corner
     corner_x = corner[0]
     corner_y = corner[1]
+
+    # x and y of the point in (1;0)
     ptX_x = imgpts[0][0][0]
     ptX_y = imgpts[0][0][1]
+
+    # x and y of the point in (0;1)
     ptY_x = imgpts[1][0][0]
     ptY_y = imgpts[1][0][1]
 
+    # unity vector in X
     vectX = ( ptX_x - corner_x , ptX_y - corner_y )
-    vectX_away = ( lineLenght * vectX[0], lineLenght * vectX[1] )
     vectY = ( ptY_x - corner_x , ptY_y - corner_y )
-    vectY_away = ( lineLenght * vectY[0], lineLenght * vectY[1] )
 
+    # vector lineLenght away
+    vectX_away = ( 3 * lineLenght * vectX[0], 3 * lineLenght * vectX[1] )
+    vectY_away = ( 3 * lineLenght * vectY[0], 3 * lineLenght * vectY[1] )
+    # 2/3
+    vectX_2 = ( 2 * lineLenght * vectX[0], 2 * lineLenght * vectX[1] )
+    vectY_2 = ( 2 * lineLenght * vectY[0], 2 * lineLenght * vectY[1] )
+    # 1/3
+    vectX_1 = ( 1 * lineLenght * vectX[0], 1 * lineLenght * vectX[1] )
+    vectY_1 = ( 1 * lineLenght * vectY[0], 1 * lineLenght * vectY[1] )
+
+    # line from corner to point (3;0)
     cv2.line(img, corner, ( int( corner_x + vectX_away[0] ), int( corner_y + vectX_away[1] ) ), borderColor, lineWidth)
 
+    # line from corner to point (0;3)
     cv2.line(img, corner, ( int( corner_x + vectY_away[0] ), int( corner_y + vectY_away[1] ) ), borderColor, lineWidth)
 
+    # line from point (3;0) to (3;3)
     cv2.line(
     img,
     ( int( corner_x + vectY_away[0] ), int( corner_y + vectY_away[1] ) ),
@@ -72,6 +89,7 @@ def draw(img, corners, imgpts):
     borderColor,
     lineWidth)
 
+    # line from point (0;3) to (3;3)
     cv2.line(
     img,
     ( int( corner_x + vectX_away[0] ), int( corner_y + vectX_away[1] ) ),
@@ -79,8 +97,37 @@ def draw(img, corners, imgpts):
     borderColor,
     lineWidth)
 
-    #cv2.line(img, corner, tuple(imgpts[2].ravel()), (0,0,255), 3)
+    # line from point (0;2) to (3;2)
+    cv2.line(
+    img,
+    ( int( corner_x + vectX_2[0] ), int( corner_y + vectX_2[1] ) ),
+    ( int( corner_x + vectY_away[0] + vectX_2[0] ), int( corner_y + vectY_away[1] + vectX_2[1] ) ),
+    borderColor,
+    lineWidth)
 
+    # line from point (0;1) to (3;1)
+    cv2.line(
+    img,
+    ( int( corner_x + vectX_1[0] ), int( corner_y + vectX_1[1] ) ),
+    ( int( corner_x + vectY_away[0] + vectX_1[0] ), int( corner_y + vectY_away[1] + vectX_1[1] ) ),
+    borderColor,
+    lineWidth)
+
+    # line from point (2;0) to (2;3)
+    cv2.line(
+    img,
+    ( int( corner_x + vectY_2[0] ), int( corner_y + vectY_2[1] ) ),
+    ( int( corner_x + vectX_away[0] + vectY_2[0] ), int( corner_y + vectX_away[1] + vectY_2[1] ) ),
+    borderColor,
+    lineWidth)
+
+    # line from point (2;0) to (2;3)
+    cv2.line(
+    img,
+    ( int( corner_x + vectY_1[0] ), int( corner_y + vectY_1[1] ) ),
+    ( int( corner_x + vectX_away[0] + vectY_1[0] ), int( corner_y + vectX_away[1] + vectY_1[1] ) ),
+    borderColor,
+    lineWidth)
 
 
 class image_feature:
@@ -120,7 +167,7 @@ class image_feature:
         gray = cv2.cvtColor(image_np,cv2.COLOR_BGR2GRAY)
 
         # Detect pattern (chessboard)
-        ret, corners = cv2.findChessboardCorners(gray, (5,4), None) 
+        ret, corners = cv2.findChessboardCorners(gray, (chessHeight,chessWidth), None) 
 
         # If found, add object points, image points (after refining them)
         if ret == True:
@@ -139,14 +186,11 @@ class image_feature:
             # project 3D points to image plane
             imgpts, jac = cv2.projectPoints(axis, self.camera_rvecs, self.camera_tvecs, self.camera_mtx, self.camera_dist)
 
-            # Save
             self.previous_corners = corners
             self.previous_imgpts = imgpts
 
-            draw(image_np,corners,imgpts)
-        else:
-            if (self.initialized == 1):
-                draw(image_np,self.previous_corners,self.previous_imgpts)
+        if (self.initialized == 1):
+            draw(image_np,self.previous_corners,self.previous_imgpts)
 
         # Draw and display the corners
         cv2.imshow('cv_img', image_np)
