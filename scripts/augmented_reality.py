@@ -30,9 +30,27 @@ from sensor_msgs.msg import CompressedImage
 
 VERBOSE=False
 
+# termination criteria
+criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+
+# prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
+objp = np.zeros((4*5,3), np.float32)
+objp[:,:2] = np.mgrid[0:5,0:4].T.reshape(-1,2)
+
+axis = np.float32([[3,0,0], [0,3,0], [0,0,-3]]).reshape(-1,3)
+
+def draw(img, corners, imgpts):
+    corner = tuple(corners[0].ravel())
+    cv2.line(img, corner, tuple(imgpts[0].ravel()), (255,0,0), 3)
+    cv2.line(img, corner, tuple(imgpts[1].ravel()), (0,255,0), 3)
+    cv2.line(img, corner, tuple(imgpts[2].ravel()), (0,0,255), 3)
+
+
+
 class image_feature:
 
     def __init__(self):
+
         '''Initialize ros publisher, ros subscriber'''
         # topic where we publish
         self.image_pub = rospy.Publisher("/output/image_raw/compressed",
@@ -58,6 +76,10 @@ class image_feature:
 
         # Init
         time1 = time.time()
+        # Arrays to store object points and image points from all the images.
+        objpoints = [] # 3d point in real world space
+        imgpoints = [] # 2d points in image plane.
+
 
         # convert np image to grayscale
         gray = cv2.cvtColor(image_np,cv2.COLOR_BGR2GRAY)
@@ -66,17 +88,26 @@ class image_feature:
         ret, corners = cv2.findChessboardCorners(gray, (5,4), None) 
         time2 = time.time()
 
-        # If pattern is detected
+        # If found, add object points, image points (after refining them)
         if ret == True:
-            print "Chess found"
-            x = corners[0][0][0]
-            y = corners[0][0][1]
-            cv2.circle(image_np,(int(x),int(y)), 8, (0,0,255), -1)
-        else:
-            print "No chess found"
+            objpoints.append(objp)
 
-        cv2.imshow('cv_img', image_np)
-        cv2.waitKey(50)
+            cv2.cornerSubPix(gray,corners,(11,11),(-1,-1),criteria)
+            imgpoints.append(corners)
+
+            ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1],None,None)
+
+            # Find the rotation and translation vectors.
+            rvecs, tvecs, inliers = cv2.solvePnPRansac(objp, corners, mtx, dist)
+
+            # project 3D points to image plane
+            imgpts, jac = cv2.projectPoints(axis, rvecs, tvecs, mtx, dist)
+
+            draw(image_np,corners,imgpts)
+
+            # Draw and display the corners
+            cv2.imshow('cv_img', image_np)
+            cv2.waitKey(50)
 
         #### Create CompressedIamge ####
         msg = CompressedImage()
