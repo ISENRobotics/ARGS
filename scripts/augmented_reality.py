@@ -40,11 +40,13 @@ chessHeight = 5
 objp = np.zeros((chessWidth*chessHeight,3), np.float32)
 objp[:,:2] = np.mgrid[0:chessHeight,0:chessWidth].T.reshape(-1,2)
 
+# Size of the chess depends on segmentLenght
+segmentLenght = 5
 # 16 points of a 3*3 chessboard
-segmentLenght = 1
 axis_points = [[0,0,0], [1,0,0], [2,0,0], [3,0,0], [0,1,0], [1,1,0], [2,1,0], [3,1,0], [0,2,0], [1,2,0], [2,2,0], [3,2,0], [0,3,0], [1,3,0], [2,3,0], [3,3,0]]
 axis_points = segmentLenght * np.array(axis_points)
 axis = np.float32(axis_points)
+
 
 def _draw(img, imgpts):
     imgpts = np.float32(imgpts).reshape(-1,2)
@@ -52,16 +54,69 @@ def _draw(img, imgpts):
     lineWidth = 2
     borderColor = (154,18,179)
 
-    cv2.line(img, tuple(imgpts[0]), tuple(imgpts[3]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[3]), tuple(imgpts[15]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[15]), tuple(imgpts[12]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[12]), tuple(imgpts[0]), borderColor, lineWidth)
+    # borders
 
-    cv2.line(img, tuple(imgpts[1]), tuple(imgpts[13]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[2]), tuple(imgpts[14]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[4]), tuple(imgpts[7]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[8]), tuple(imgpts[11]), borderColor, lineWidth)
-  
+    cv2.line(img, tuple(imgpts[0]), tuple(imgpts[1]), borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[1]), tuple(imgpts[2]), borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[2]), tuple(imgpts[3]), borderColor, lineWidth)
+
+    cv2.line(img, tuple(imgpts[3]), tuple(imgpts[7]), borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[7]), tuple(imgpts[11]), borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[11]), tuple(imgpts[15]), borderColor, lineWidth)
+
+    cv2.line(img, tuple(imgpts[12]), tuple(imgpts[13]), borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[13]), tuple(imgpts[14]), borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[14]), tuple(imgpts[15]), borderColor, lineWidth)
+
+    cv2.line(img, tuple(imgpts[0]), tuple(imgpts[4]), borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[4]), tuple(imgpts[8]), borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[8]), tuple(imgpts[12]), borderColor, lineWidth)
+
+    # lines
+
+    cv2.line(img, tuple(imgpts[1]), tuple(imgpts[5]), borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[5]), tuple(imgpts[9]), borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[9]), tuple(imgpts[13]), borderColor, lineWidth)
+
+    cv2.line(img, tuple(imgpts[2]), tuple(imgpts[6]), borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[6]), tuple(imgpts[10]), borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[10]), tuple(imgpts[14]), borderColor, lineWidth)
+
+    cv2.line(img, tuple(imgpts[4]), tuple(imgpts[5]), borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[5]), tuple(imgpts[6]), borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[6]), tuple(imgpts[7]), borderColor, lineWidth)
+
+    cv2.line(img, tuple(imgpts[8]), tuple(imgpts[9]), borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[9]), tuple(imgpts[10]), borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[10]), tuple(imgpts[11]), borderColor, lineWidth)
+
+
+def _play(action, img, imgpts):
+    case = int(action[2])
+
+    if( action[1] == 'A' ):
+        case += 0
+    elif( action[1] == 'B' ):
+        case += 4
+    elif( action[1] == 'C' ):
+        case += 8
+    else:
+        print "Problem in case detection"
+
+    # Read symbol to play
+    if( action[0] == 'C' ):
+        color = (242, 38, 19)
+    elif( action[0] == 'R' ):
+        color = (30, 130, 76)
+    else:
+        print "Problem in form detection"
+        return
+
+    imgpts = np.float32(imgpts).reshape(-1,2)
+    width = 3
+    cv2.line(img, tuple(imgpts[case]), tuple(imgpts[case+5]), color, width)
+    cv2.line(img, tuple(imgpts[case+4]), tuple(imgpts[case+1]), color, width)
+
 
 class image_feature:
 
@@ -96,7 +151,7 @@ class image_feature:
         # Treat only image after img_treatment_freq (in ns) passed
         now = rospy.Time.now()
         now_ns = 1000000000 * now.secs + now.nsecs # time in ns
-        img_treatment_freq = 100000000 # 100 ms
+        img_treatment_freq = 1000000000 # 1 s
         if( now_ns - self.last_treatment >= img_treatment_freq ):
             # Arrays to store object points and image points from all the images.
             objpoints = [] # 3d point in real world space
@@ -128,11 +183,18 @@ class image_feature:
                 self.previous_corners = corners
                 self.previous_imgpts = imgpts
 
-                # Save last treatment
-                self.last_treatment = now_ns
+            # Save last treatment
+            self.last_treatment = now_ns
 
         if (self.initialized == 1):
             _draw(image_np,self.previous_imgpts)
+            _play("CB2", image_np, self.previous_imgpts)
+            _play("CB0", image_np, self.previous_imgpts)
+            _play("CA0", image_np, self.previous_imgpts)
+            _play("RA1", image_np, self.previous_imgpts)
+            _play("RC2", image_np, self.previous_imgpts)
+            _play("RC0", image_np, self.previous_imgpts)
+
 
         # Draw and display the corners
         cv2.imshow('cv_img', image_np)
