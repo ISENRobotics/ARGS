@@ -41,54 +41,81 @@ objp = np.zeros((chessWidth*chessHeight,3), np.float32)
 objp[:,:2] = np.mgrid[0:chessHeight,0:chessWidth].T.reshape(-1,2)
 
 # Size of the chess depends on segmentLenght
-segmentLenght = 5
+segmentLenght = 2
 # 16 points of a 3*3 chessboard
-axis_points = [[0,0,0], [1,0,0], [2,0,0], [3,0,0], [0,1,0], [1,1,0], [2,1,0], [3,1,0], [0,2,0], [1,2,0], [2,2,0], [3,2,0], [0,3,0], [1,3,0], [2,3,0], [3,3,0]]
-axis_points = segmentLenght * np.array(axis_points)
-axis = np.float32(axis_points)
+#axis_points = [[0,0,0], [1,0,0], [2,0,0], [3,0,0], [0,1,0], [1,1,0], [2,1,0], [3,1,0], [0,2,0], [1,2,0], [2,2,0], [3,2,0], [0,3,0], [1,3,0], [2,3,0], [3,3,0]]
+axis = np.float32( [[0,0,0], [3,0,0], [3,3,0], [0,3,0]] )
+
+
+def _generatePlateCorners( imgpts ):
+    imgpts = np.float32(imgpts).reshape(-1,2)
+
+    coefInconnu = 0.9
+    corners = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+
+    corners[0] = imgpts[0]
+    corners[1] = imgpts[1]
+    corners[5] = imgpts[2]
+    corners[4] = imgpts[3]
+
+    dist01_x = ( imgpts[1][0] - imgpts[0][0] )
+    dist01_y = ( imgpts[1][1] - imgpts[0][1] )
+    dist12_x = coefInconnu * dist01_x
+    dist12_y = coefInconnu * dist01_y
+    corners[2] = ( int( corners[1][0] + dist12_x ), int( corners[1][1] + dist12_y ) )
+    dist23_x = coefInconnu * dist12_x
+    dist23_y = coefInconnu * dist12_y
+    corners[3] = ( int( corners[2][0] + dist23_x ), int( corners[2][1] + dist23_y ) )
+
+    dist04_x = ( imgpts[3][0] - imgpts[0][0] )
+    dist04_y = ( imgpts[3][1] - imgpts[0][1] )
+    dist48_x = coefInconnu * dist04_x
+    dist48_y = coefInconnu * dist04_y
+    corners[8] = ( int( corners[4][0] + dist48_x ), int( corners[4][1] + dist48_y ) )
+    dist812_x = coefInconnu * dist48_x
+    dist812_y = coefInconnu * dist48_y
+    corners[12] = ( int( corners[8][0] + dist812_x ), int( corners[8][1] + dist812_y ) )
+
+    return corners
 
 
 def _draw(img, imgpts):
     imgpts = np.float32(imgpts).reshape(-1,2)
-  
     lineWidth = 2
     borderColor = (154,18,179)
 
-    # borders
+    corners = _generatePlateCorners(imgpts)
 
-    cv2.line(img, tuple(imgpts[0]), tuple(imgpts[1]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[1]), tuple(imgpts[2]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[2]), tuple(imgpts[3]), borderColor, lineWidth)
+    # Get the intersection point between 01 and 23
+    intersection0123 = _getIntersectionPoint( [imgpts[0],imgpts[1]], [imgpts[2],imgpts[3]] )
+    # Get the intersection point between 12 and 30
+    intersection1230 = _getIntersectionPoint( [imgpts[1],imgpts[2]], [imgpts[3],imgpts[0]] )
 
-    cv2.line(img, tuple(imgpts[3]), tuple(imgpts[7]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[7]), tuple(imgpts[11]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[11]), tuple(imgpts[15]), borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[0]), ( intersection1230[0], intersection1230[1] ) , borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[1]), ( intersection1230[0], intersection1230[1] ) , borderColor, lineWidth)
+    cv2.line(img, corners[2], ( intersection1230[0], intersection1230[1] ) , borderColor, lineWidth)
+    cv2.line(img, corners[3], ( intersection1230[0], intersection1230[1] ) , borderColor, lineWidth)
 
-    cv2.line(img, tuple(imgpts[12]), tuple(imgpts[13]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[13]), tuple(imgpts[14]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[14]), tuple(imgpts[15]), borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[0]), ( intersection0123[0], intersection0123[1] ) , borderColor, lineWidth)
+    cv2.line(img, tuple(imgpts[3]), ( intersection0123[0], intersection0123[1] ) , borderColor, lineWidth)
+    cv2.line(img, corners[8], ( intersection0123[0], intersection0123[1] ) , borderColor, lineWidth)
+    cv2.line(img, corners[12], ( intersection0123[0], intersection0123[1] ) , borderColor, lineWidth)
 
-    cv2.line(img, tuple(imgpts[0]), tuple(imgpts[4]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[4]), tuple(imgpts[8]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[8]), tuple(imgpts[12]), borderColor, lineWidth)
 
-    # lines
+def _getIntersectionPoint( seg1, seg2 ):
+    # y = ax+b
+    # a = (y0-y1)/(x0-x1)
+    dirCoef_segment_1 = ( seg1[0][1] - seg1[1][1] ) / ( seg1[0][0] - seg1[1][0] )
+    dirCoef_segment_2 = ( seg2[0][1] - seg2[1][1] ) / ( seg2[0][0] - seg2[1][0] )
+    # b = y0 - a*x0
+    origin_segment_1 = seg1[0][1] - ( dirCoef_segment_1 * seg1[0][0] )
+    origin_segment_2 = seg2[0][1] - ( dirCoef_segment_2 * seg2[0][0] )
 
-    cv2.line(img, tuple(imgpts[1]), tuple(imgpts[5]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[5]), tuple(imgpts[9]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[9]), tuple(imgpts[13]), borderColor, lineWidth)
-
-    cv2.line(img, tuple(imgpts[2]), tuple(imgpts[6]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[6]), tuple(imgpts[10]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[10]), tuple(imgpts[14]), borderColor, lineWidth)
-
-    cv2.line(img, tuple(imgpts[4]), tuple(imgpts[5]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[5]), tuple(imgpts[6]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[6]), tuple(imgpts[7]), borderColor, lineWidth)
-
-    cv2.line(img, tuple(imgpts[8]), tuple(imgpts[9]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[9]), tuple(imgpts[10]), borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[10]), tuple(imgpts[11]), borderColor, lineWidth)
+    # x of intersection = (b2-b1)/(a1-b2)
+    intersection_x = ( origin_segment_2 - origin_segment_1 ) / ( dirCoef_segment_1 - dirCoef_segment_2 )
+    # y corresponding
+    intersection_y = ( dirCoef_segment_1 * intersection_x ) + origin_segment_1
+    return [ intersection_x, intersection_y ]
 
 
 def _play(action, img, imgpts):
@@ -187,13 +214,14 @@ class image_feature:
             self.last_treatment = now_ns
 
         if (self.initialized == 1):
+            #_draw(image_np,self.previous_imgpts)
             _draw(image_np,self.previous_imgpts)
-            _play("CB2", image_np, self.previous_imgpts)
-            _play("CB0", image_np, self.previous_imgpts)
-            _play("CA0", image_np, self.previous_imgpts)
-            _play("RA1", image_np, self.previous_imgpts)
-            _play("RC2", image_np, self.previous_imgpts)
-            _play("RC0", image_np, self.previous_imgpts)
+           # _play("CB2", image_np, self.previous_imgpts)
+           # _play("CB0", image_np, self.previous_imgpts)
+           # _play("CA0", image_np, self.previous_imgpts)
+           # _play("RA1", image_np, self.previous_imgpts)
+           # _play("RC2", image_np, self.previous_imgpts)
+           # _play("RC0", image_np, self.previous_imgpts)
 
 
         # Draw and display the corners
