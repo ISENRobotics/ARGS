@@ -33,8 +33,11 @@ VERBOSE=False
 # termination criteria
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
+# config
 chessWidth = 4
 chessHeight = 5
+scaleFactor = 2
+coefInconnu = 0.8
 
 # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
 objp = np.zeros((chessWidth*chessHeight,3), np.float32)
@@ -47,16 +50,12 @@ axis = np.float32( [[0,0,0], [3,0,0], [3,3,0], [0,3,0]] )
 def _generatePlateCorners( imgpts ):
     imgpts = np.float32(imgpts).reshape(-1,2)
 
-    coefInconnu = 0.9
     corners = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-
     corners[0] = imgpts[0]
-    corners[1] = imgpts[1]
-    corners[5] = imgpts[2]
-    corners[4] = imgpts[3]
 
-    dist01_x = ( imgpts[1][0] - imgpts[0][0] )
-    dist01_y = ( imgpts[1][1] - imgpts[0][1] )
+    dist01_x = scaleFactor * ( imgpts[1][0] - imgpts[0][0] )
+    dist01_y = scaleFactor * ( imgpts[1][1] - imgpts[0][1] )
+    corners[1] = ( int( corners[0][0] + dist01_x ), int( corners[0][1] + dist01_y ) )
     dist12_x = coefInconnu * dist01_x
     dist12_y = coefInconnu * dist01_y
     corners[2] = ( int( corners[1][0] + dist12_x ), int( corners[1][1] + dist12_y ) )
@@ -64,8 +63,9 @@ def _generatePlateCorners( imgpts ):
     dist23_y = coefInconnu * dist12_y
     corners[3] = ( int( corners[2][0] + dist23_x ), int( corners[2][1] + dist23_y ) )
 
-    dist04_x = ( imgpts[3][0] - imgpts[0][0] )
-    dist04_y = ( imgpts[3][1] - imgpts[0][1] )
+    dist04_x = scaleFactor * ( imgpts[3][0] - imgpts[0][0] )
+    dist04_y = scaleFactor * ( imgpts[3][1] - imgpts[0][1] )
+    corners[4] = ( int( corners[0][0] + dist04_x ), int( corners[0][1] + dist04_y ) )
     dist48_x = coefInconnu * dist04_x
     dist48_y = coefInconnu * dist04_y
     corners[8] = ( int( corners[4][0] + dist48_x ), int( corners[4][1] + dist48_y ) )
@@ -160,8 +160,7 @@ class image_feature:
 
         '''Initialize ros publisher, ros subscriber'''
         # topic where we publish
-        self.image_pub = rospy.Publisher("/output/image_raw/compressed",
-            CompressedImage)
+        self.image_pub = rospy.Publisher("/augmented_reality_output/image_raw/compressed", CompressedImage, queue_size = 1)
         # self.bridge = CvBridge()
 
         # subscribed Topic
