@@ -40,10 +40,7 @@ chessHeight = 5
 objp = np.zeros((chessWidth*chessHeight,3), np.float32)
 objp[:,:2] = np.mgrid[0:chessHeight,0:chessWidth].T.reshape(-1,2)
 
-# Size of the chess depends on segmentLenght
-segmentLenght = 2
-# 16 points of a 3*3 chessboard
-#axis_points = [[0,0,0], [1,0,0], [2,0,0], [3,0,0], [0,1,0], [1,1,0], [2,1,0], [3,1,0], [0,2,0], [1,2,0], [2,2,0], [3,2,0], [0,3,0], [1,3,0], [2,3,0], [3,3,0]]
+# Unity axis, based on the chess
 axis = np.float32( [[0,0,0], [3,0,0], [3,3,0], [0,3,0]] )
 
 
@@ -76,30 +73,39 @@ def _generatePlateCorners( imgpts ):
     dist812_y = coefInconnu * dist48_y
     corners[12] = ( int( corners[8][0] + dist812_x ), int( corners[8][1] + dist812_y ) )
 
-    return corners
-
-
-def _draw(img, imgpts):
-    imgpts = np.float32(imgpts).reshape(-1,2)
-    lineWidth = 2
-    borderColor = (154,18,179)
-
-    corners = _generatePlateCorners(imgpts)
-
     # Get the intersection point between 01 and 23
     intersection0123 = _getIntersectionPoint( [imgpts[0],imgpts[1]], [imgpts[2],imgpts[3]] )
     # Get the intersection point between 12 and 30
     intersection1230 = _getIntersectionPoint( [imgpts[1],imgpts[2]], [imgpts[3],imgpts[0]] )
 
-    cv2.line(img, tuple(imgpts[0]), ( intersection1230[0], intersection1230[1] ) , borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[1]), ( intersection1230[0], intersection1230[1] ) , borderColor, lineWidth)
-    cv2.line(img, corners[2], ( intersection1230[0], intersection1230[1] ) , borderColor, lineWidth)
-    cv2.line(img, corners[3], ( intersection1230[0], intersection1230[1] ) , borderColor, lineWidth)
+    corners[13] = _getIntersectionPoint( [corners[1], intersection1230], [corners[12], intersection0123] )
+    corners[14] = _getIntersectionPoint( [corners[2], intersection1230], [corners[12], intersection0123] )
+    corners[15] = _getIntersectionPoint( [corners[3], intersection1230], [corners[12], intersection0123] )
 
-    cv2.line(img, tuple(imgpts[0]), ( intersection0123[0], intersection0123[1] ) , borderColor, lineWidth)
-    cv2.line(img, tuple(imgpts[3]), ( intersection0123[0], intersection0123[1] ) , borderColor, lineWidth)
-    cv2.line(img, corners[8], ( intersection0123[0], intersection0123[1] ) , borderColor, lineWidth)
-    cv2.line(img, corners[12], ( intersection0123[0], intersection0123[1] ) , borderColor, lineWidth)
+    corners[9]  = _getIntersectionPoint( [corners[1], intersection1230], [corners[8], intersection0123] )
+    corners[10] = _getIntersectionPoint( [corners[2], intersection1230], [corners[8], intersection0123] )
+    corners[11] = _getIntersectionPoint( [corners[3], intersection1230], [corners[8], intersection0123] )
+
+    corners[5] = _getIntersectionPoint( [corners[1], intersection1230], [corners[4], intersection0123] )
+    corners[6] = _getIntersectionPoint( [corners[2], intersection1230], [corners[4], intersection0123] )
+    corners[7] = _getIntersectionPoint( [corners[3], intersection1230], [corners[4], intersection0123] )
+
+    return corners
+
+
+def _draw(img, corners):
+    lineWidth = 2
+    borderColor = (154,18,179)
+
+    cv2.line(img, tuple(corners[0]), ( int( corners[12][0] ), int( corners[12][1] ) ) , borderColor, lineWidth)
+    cv2.line(img, tuple(corners[1]), ( int( corners[13][0] ), int( corners[13][1] ) ) , borderColor, lineWidth)
+    cv2.line(img, tuple(corners[2]), ( int( corners[14][0] ), int( corners[14][1] ) ) , borderColor, lineWidth)
+    cv2.line(img, tuple(corners[3]), ( int( corners[15][0] ), int( corners[15][1] ) ) , borderColor, lineWidth)
+
+    cv2.line(img, tuple(corners[0]), ( int( corners[3][0] ), int( corners[3][1] ) ) , borderColor, lineWidth)
+    cv2.line(img, tuple(corners[4]), ( int( corners[7][0] ), int( corners[7][1] ) ) , borderColor, lineWidth)
+    cv2.line(img, tuple(corners[8]), ( int( corners[11][0] ), int( corners[11][1] ) ) , borderColor, lineWidth)
+    cv2.line(img, tuple(corners[12]), ( int( corners[15][0] ), int( corners[15][1] ) ) , borderColor, lineWidth)
 
 
 def _getIntersectionPoint( seg1, seg2 ):
@@ -207,24 +213,23 @@ class image_feature:
                 # project 3D points to image plane
                 imgpts, jac = cv2.projectPoints(axis, self.camera_rvecs, self.camera_tvecs, self.camera_mtx, self.camera_dist)
 
-                self.previous_corners = corners
-                self.previous_imgpts = imgpts
+                plateCorners = _generatePlateCorners(imgpts)
+                self.previous_plateCorners = plateCorners
 
             # Save last treatment
             self.last_treatment = now_ns
 
         if (self.initialized == 1):
-            #_draw(image_np,self.previous_imgpts)
-            _draw(image_np,self.previous_imgpts)
-           # _play("CB2", image_np, self.previous_imgpts)
-           # _play("CB0", image_np, self.previous_imgpts)
-           # _play("CA0", image_np, self.previous_imgpts)
-           # _play("RA1", image_np, self.previous_imgpts)
-           # _play("RC2", image_np, self.previous_imgpts)
-           # _play("RC0", image_np, self.previous_imgpts)
+            _draw(image_np,self.previous_plateCorners)
+            _play("CB2", image_np, self.previous_plateCorners)
+            _play("CB0", image_np, self.previous_plateCorners)
+            _play("CA0", image_np, self.previous_plateCorners)
+            _play("RA1", image_np, self.previous_plateCorners)
+            _play("RC2", image_np, self.previous_plateCorners)
+            _play("RC0", image_np, self.previous_plateCorners)
 
 
-        # Draw and display the corners
+        # Display image
         cv2.imshow('cv_img', image_np)
         cv2.waitKey(5)
 
