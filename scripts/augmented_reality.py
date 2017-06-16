@@ -28,16 +28,25 @@ from sensor_msgs.msg import CompressedImage
 # We do not use cv_bridge it does not support CompressedImage in python
 # from cv_bridge import CvBridge, CvBridgeError
 
-VERBOSE=False
-
 # termination criteria
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
 # config
 chessWidth = 4
 chessHeight = 5
-scaleFactor = 2
-coefInconnu = 0.8
+scaleFactor = 3.19
+coefInconnu = 1
+crossWidth = 3
+colorC = (242, 38, 19)
+colorR = (30, 130, 76)
+borderColor = (154,18,179)
+img_treatment_freq = 1000000000 # 1 s
+
+inputImagesTopic = "/usb_cam/image_raw/compressed"
+ouputImagesTopic = "/augmented_reality_output/image_raw/compressed"
+
+showWindow = True
+VERBOSE = False
 
 # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
 objp = np.zeros((chessWidth*chessHeight,3), np.float32)
@@ -95,7 +104,6 @@ def _generatePlateCorners( imgpts ):
 
 def _draw(img, corners):
     lineWidth = 2
-    borderColor = (154,18,179)
 
     cv2.line(img, tuple(corners[0]), ( int( corners[12][0] ), int( corners[12][1] ) ) , borderColor, lineWidth)
     cv2.line(img, tuple(corners[1]), ( int( corners[13][0] ), int( corners[13][1] ) ) , borderColor, lineWidth)
@@ -138,41 +146,38 @@ def _play(action, img, imgpts):
 
     # Read symbol to play
     if( action[0] == 'C' ):
-        color = (242, 38, 19)
+        color = colorC
     elif( action[0] == 'R' ):
-        color = (30, 130, 76)
+        color = colorR
     else:
         print "Problem in form detection"
         return
 
     imgpts = np.float32(imgpts).reshape(-1,2)
-    width = 3
-    cv2.line(img, tuple(imgpts[case]), tuple(imgpts[case+5]), color, width)
-    cv2.line(img, tuple(imgpts[case+4]), tuple(imgpts[case+1]), color, width)
+    cv2.line(img, tuple(imgpts[case]), tuple(imgpts[case+5]), color, crossWidth)
+    cv2.line(img, tuple(imgpts[case+4]), tuple(imgpts[case+1]), color, crossWidth)
 
 
-class image_feature:
+class augmented_reality:
 
     def __init__(self):
-
         self.initialized = 0
         self.last_treatment = 0
 
-        '''Initialize ros publisher, ros subscriber'''
+        # Initialize ros publishers and ros subscribers
+
         # topic where we publish
-        self.image_pub = rospy.Publisher("/augmented_reality_output/image_raw/compressed", CompressedImage, queue_size = 1)
-        # self.bridge = CvBridge()
+        self.image_pub = rospy.Publisher(ouputImagesTopic, CompressedImage, queue_size = 1)
 
         # subscribed Topic
-        self.subscriber = rospy.Subscriber("/usb_cam/image_raw/compressed",
-            CompressedImage, self.callback,  queue_size = 1)
+        self.subscriber = rospy.Subscriber(inputImagesTopic, CompressedImage, self.callback,  queue_size = 1)
+
         if VERBOSE :
-            print "subscribed to /usb_cam/image_raw/compressed"
+            print "subscribed to %s" % (inputImagesTopic)
 
 
+    # Callback function of subscribed topic
     def callback(self, ros_data):
-        '''Callback function of subscribed topic. 
-        Here images get converted and features detected'''
         if VERBOSE :
             print 'received image of type: "%s"' % ros_data.format
 
@@ -183,7 +188,6 @@ class image_feature:
         # Treat only image after img_treatment_freq (in ns) passed
         now = rospy.Time.now()
         now_ns = 1000000000 * now.secs + now.nsecs # time in ns
-        img_treatment_freq = 1000000000 # 1 s
         if( now_ns - self.last_treatment >= img_treatment_freq ):
             # Arrays to store object points and image points from all the images.
             objpoints = [] # 3d point in real world space
@@ -229,10 +233,11 @@ class image_feature:
 
 
         # Display image
-        cv2.imshow('cv_img', image_np)
-        cv2.waitKey(5)
+        if showWindow:
+            cv2.imshow('cv_img', image_np)
+            cv2.waitKey(5)
 
-        #### Create CompressedIamge ####
+        # Create CompressedImage
         msg = CompressedImage()
         msg.header.stamp = rospy.Time.now()
         msg.format = "jpeg"
@@ -242,9 +247,9 @@ class image_feature:
 
 
 def main(args):
-    '''Initializes and cleanup ros node'''
-    ic = image_feature()
-    rospy.init_node('image_feature', anonymous=True)
+    # Initializes and cleanup ros node
+    ar = augmented_reality()
+    rospy.init_node('args_ar', anonymous=True)
     try:
         rospy.spin()
     except KeyboardInterrupt:
