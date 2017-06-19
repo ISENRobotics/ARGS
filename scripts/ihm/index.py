@@ -323,6 +323,5 @@ $(window).load(function(){
 
 </body>
 </html>
-
 """
 print(html)
