@@ -15,6 +15,7 @@ import sys, time
 # numpy and scipy
 import numpy as np
 from scipy.ndimage import filters
+from collections import deque
 
 # OpenCV
 import cv2
@@ -41,6 +42,7 @@ colorC = (242, 38, 19)
 colorR = (30, 130, 76)
 borderColor = (154,18,179)
 img_treatment_freq = 1000000000 # 1 s
+mean_size = 4
 
 inputImagesTopic = "/usb_cam/image_raw/compressed"
 ouputImagesTopic = "/augmented_reality_output/image_raw/compressed"
@@ -116,6 +118,36 @@ def _draw(img, corners):
     cv2.line(img, tuple(corners[12]), ( int( corners[15][0] ), int( corners[15][1] ) ) , borderColor, lineWidth)
 
 
+def _mean_origin(self, imgpts):
+    imgpts = np.float32(imgpts).reshape(-1,2)
+
+    # origin point
+    self.origins.append([ imgpts[0][0], imgpts[0][1] ])
+    if( len(self.origins) > mean_size ):
+        self.origins.popleft()
+
+    # Mean origin
+    meanx = 0
+    meany = 0
+    for pt in self.origins:
+        meanx = meanx + pt[0]
+        meany = meany + pt[1]
+    diffx = ( meanx / len(self.origins) ) - imgpts[0][0]
+    diffy = ( meany / len(self.origins) ) - imgpts[0][1]
+
+    # Move all points to have same origin
+    imgpts[0][0] = imgpts[0][0] + diffx
+    imgpts[1][0] = imgpts[1][0] + diffx
+    imgpts[2][0] = imgpts[2][0] + diffx
+    imgpts[3][0] = imgpts[3][0] + diffx
+    imgpts[0][1] = imgpts[0][1] + diffy
+    imgpts[1][1] = imgpts[1][1] + diffy
+    imgpts[2][1] = imgpts[2][1] + diffy
+    imgpts[3][1] = imgpts[3][1] + diffy
+
+    return imgpts
+
+
 def _getIntersectionPoint( seg1, seg2 ):
     # y = ax+b
     # a = (y0-y1)/(x0-x1)
@@ -163,6 +195,9 @@ class augmented_reality:
     def __init__(self):
         self.initialized = 0
         self.last_treatment = 0
+        self.origins = deque()
+        self.coefAndOrigin01 = deque()
+        self.coefAndOrigin03 = deque()
 
         # Initialize ros publishers and ros subscribers
 
@@ -216,7 +251,8 @@ class augmented_reality:
                 # project 3D points to image plane
                 imgpts, jac = cv2.projectPoints(axis, self.camera_rvecs, self.camera_tvecs, self.camera_mtx, self.camera_dist)
 
-                plateCorners = _generatePlateCorners(imgpts)
+                mean_imgpts = _mean_origin(self, imgpts)
+                plateCorners = _generatePlateCorners(mean_imgpts)
                 self.previous_plateCorners = plateCorners
 
             # Save last treatment
