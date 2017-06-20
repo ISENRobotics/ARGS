@@ -58,7 +58,7 @@ objp[:,:2] = np.mgrid[0:chessHeight,0:chessWidth].T.reshape(-1,2)
 axis = np.float32( [[0,0,0], [3,0,0], [3,3,0], [0,3,0]] )
 
 
-def _generatePlateCorners( imgpts ):
+def _generatePlateCorners( self, imgpts ):
     imgpts = np.float32(imgpts).reshape(-1,2)
 
     corners = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
@@ -85,9 +85,9 @@ def _generatePlateCorners( imgpts ):
     corners[12] = ( int( corners[8][0] + dist812_x ), int( corners[8][1] + dist812_y ) )
 
     # Get the intersection point between 01 and 23
-    intersection0123 = _getIntersectionPoint( [imgpts[0],imgpts[1]], [imgpts[2],imgpts[3]] )
+    intersection0123 = self.intersection0123
     # Get the intersection point between 12 and 30
-    intersection1230 = _getIntersectionPoint( [imgpts[1],imgpts[2]], [imgpts[3],imgpts[0]] )
+    intersection1230 = self.intersection1230
 
     corners[13] = _getIntersectionPoint( [corners[1], intersection1230], [corners[12], intersection0123] )
     corners[14] = _getIntersectionPoint( [corners[2], intersection1230], [corners[12], intersection0123] )
@@ -116,6 +116,81 @@ def _draw(img, corners):
     cv2.line(img, tuple(corners[4]), ( int( corners[7][0] ), int( corners[7][1] ) ) , borderColor, lineWidth)
     cv2.line(img, tuple(corners[8]), ( int( corners[11][0] ), int( corners[11][1] ) ) , borderColor, lineWidth)
     cv2.line(img, tuple(corners[12]), ( int( corners[15][0] ), int( corners[15][1] ) ) , borderColor, lineWidth)
+
+
+def _mean_lines(self, imgpts):
+    imgpts = np.float32(imgpts).reshape(-1,2)
+
+    # Get the intersection point between 01 and 23
+    intersection0123 = _getIntersectionPoint( [imgpts[0],imgpts[1]], [imgpts[2],imgpts[3]] )
+    # Get the intersection point between 12 and 30
+    intersection1230 = _getIntersectionPoint( [imgpts[1],imgpts[2]], [imgpts[3],imgpts[0]] )
+
+    self.intersections0123.append( intersection0123 )
+    if( len(self.intersections0123) > mean_size ):
+        self.intersections0123.popleft()
+    self.intersections1230.append( intersection1230 )
+    if( len(self.intersections1230) > mean_size ):
+        self.intersections1230.popleft()
+
+    # Mean intersections0123
+    mean_0123_x = 0
+    mean_0123_y = 0
+    for pt in self.intersections0123:
+        mean_0123_x = mean_0123_x + pt[0]
+        mean_0123_y = mean_0123_y + pt[1]
+    mean_0123_x = mean_0123_x / len(self.intersections0123)
+    mean_0123_y = mean_0123_y / len(self.intersections0123)
+    self.intersection0123 = [ mean_0123_x, mean_0123_y ]
+
+    # Mean intersections1230
+    mean_1230_x = 0
+    mean_1230_y = 0
+    for pt in self.intersections1230:
+        mean_1230_x = mean_1230_x + pt[0]
+        mean_1230_y = mean_1230_y + pt[1]
+    mean_1230_x = mean_1230_x / len(self.intersections1230)
+    mean_1230_y = mean_1230_y / len(self.intersections1230)
+    self.intersection1230 = [ mean_1230_x, mean_1230_y ]
+
+    # Norme of unity vectors
+    self.normes01.append( imgpts[1][0] - imgpts[0][0] )
+    if( len(self.normes01) > mean_size ):
+        self.normes01.popleft()
+    self.normes03.append( imgpts[3][0] - imgpts[0][0] )
+    if( len(self.normes03) > mean_size ):
+        self.normes03.popleft()
+
+    # Mean normes01
+    norme01 = 0
+    for pt in self.normes01:
+        norme01 = norme01 + pt
+    norme01 = norme01 / len(self.normes01)
+    # Mean normes03
+    norme03 = 0
+    for pt in self.normes03:
+        norme03 = norme03 + pt
+    norme03 = norme03 / len(self.normes03)
+
+    # Move all imgpts to be in the origin - intersection lines
+
+    # y = ax+b
+    # a = (y0-y1)/(x0-x1)
+    # b = y0 - a*x0
+    dirCoef_01 = ( imgpts[0][1] - imgpts[1][1] ) / ( imgpts[0][0] - imgpts[1][0] )
+    origin_01 = imgpts[0][1] - ( dirCoef_01 * imgpts[0][0] )
+    imgpts[1][0] = imgpts[0][0] + norme01
+    imgpts[1][1] = ( dirCoef_01 * imgpts[1][0] ) + origin_01
+
+    # y = ax+b
+    # a = (y0-y1)/(x0-x1)
+    # b = y0 - a*x0
+    dirCoef_03 = ( imgpts[0][1] - imgpts[3][1] ) / ( imgpts[0][0] - imgpts[3][0] )
+    origin_03 = imgpts[0][1] - ( dirCoef_03 * imgpts[0][0] )
+    imgpts[3][0] = imgpts[0][0] + norme03
+    imgpts[3][1] = ( dirCoef_03 * imgpts[3][0] ) + origin_03
+
+    return imgpts
 
 
 def _mean_origin(self, imgpts):
@@ -196,8 +271,10 @@ class augmented_reality:
         self.initialized = 0
         self.last_treatment = 0
         self.origins = deque()
-        self.coefAndOrigin01 = deque()
-        self.coefAndOrigin03 = deque()
+        self.intersections0123 = deque()
+        self.normes01 = deque()
+        self.intersections1230 = deque()
+        self.normes03 = deque()
 
         # Initialize ros publishers and ros subscribers
 
@@ -251,8 +328,9 @@ class augmented_reality:
                 # project 3D points to image plane
                 imgpts, jac = cv2.projectPoints(axis, self.camera_rvecs, self.camera_tvecs, self.camera_mtx, self.camera_dist)
 
-                mean_imgpts = _mean_origin(self, imgpts)
-                plateCorners = _generatePlateCorners(mean_imgpts)
+                imgpts = _mean_origin(self, imgpts)
+                imgpts = _mean_lines(self, imgpts)
+                plateCorners = _generatePlateCorners(self, imgpts)
                 self.previous_plateCorners = plateCorners
 
             # Save last treatment
