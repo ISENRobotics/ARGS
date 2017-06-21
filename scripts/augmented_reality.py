@@ -36,13 +36,13 @@ criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 # config
 chessWidth = 4
 chessHeight = 5
-scaleFactor = 3.19
+scaleFactor = 2.19
 crossWidth = 3
 colorC = (242, 38, 19)
 colorR = (30, 130, 76)
 borderColor = (154,18,179)
 img_treatment_freq = 1000000000 # 1 s
-mean_size = 8
+mean_size = 30
 
 inputImagesTopic = "/usb_cam/image_raw/compressed"
 ouputImagesTopic = "/augmented_reality_output/image_raw/compressed"
@@ -90,18 +90,18 @@ def _generatePlateCorners( self, imgpts ):
     thalesRatio1504 = long15 / long04
     thalesRatio4501 = long45 / long01
 
-    dist12_x = thalesRatio4501 * dist01_x
-    dist12_y = thalesRatio4501 * dist01_y
+    dist12_x = thalesRatio1504 * dist01_x
+    dist12_y = thalesRatio1504 * dist01_y
     corners[2] = ( int( corners[1][0] + dist12_x ), int( corners[1][1] + dist12_y ) )
-    dist23_x = thalesRatio4501 * dist12_x
-    dist23_y = thalesRatio4501 * dist12_y
+    dist23_x = thalesRatio1504 * dist12_x
+    dist23_y = thalesRatio1504 * dist12_y
     corners[3] = ( int( corners[2][0] + dist23_x ), int( corners[2][1] + dist23_y ) )
 
-    dist48_x = thalesRatio1504 * dist04_x
-    dist48_y = thalesRatio1504 * dist04_y
+    dist48_x = thalesRatio4501 * dist04_x
+    dist48_y = thalesRatio4501 * dist04_y
     corners[8] = ( int( corners[4][0] + dist48_x ), int( corners[4][1] + dist48_y ) )
-    dist812_x = thalesRatio1504 * dist48_x
-    dist812_y = thalesRatio1504 * dist48_y
+    dist812_x = thalesRatio4501 * dist48_x
+    dist812_y = thalesRatio4501 * dist48_y
     corners[12] = ( int( corners[8][0] + dist812_x ), int( corners[8][1] + dist812_y ) )
 
     corners[13] = _getIntersectionPoint( [corners[1], intersection1230], [corners[12], intersection0123] )
