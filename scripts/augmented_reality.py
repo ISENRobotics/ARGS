@@ -16,6 +16,7 @@ import sys, time
 import numpy as np
 from scipy.ndimage import filters
 from collections import deque
+from math import sqrt
 
 # OpenCV
 import cv2
@@ -36,13 +37,12 @@ criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 chessWidth = 4
 chessHeight = 5
 scaleFactor = 3.19
-coefInconnu = 1
 crossWidth = 3
 colorC = (242, 38, 19)
 colorR = (30, 130, 76)
 borderColor = (154,18,179)
 img_treatment_freq = 1000000000 # 1 s
-mean_size = 4
+mean_size = 8
 
 inputImagesTopic = "/usb_cam/image_raw/compressed"
 ouputImagesTopic = "/augmented_reality_output/image_raw/compressed"
@@ -61,33 +61,48 @@ axis = np.float32( [[0,0,0], [3,0,0], [3,3,0], [0,3,0]] )
 def _generatePlateCorners( self, imgpts ):
     imgpts = np.float32(imgpts).reshape(-1,2)
 
+    # Get the intersection point between 01 and 23
+    intersection0123 = self.intersection0123
+    # Get the intersection point between 12 and 30
+    intersection1230 = self.intersection1230
+
     corners = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
     corners[0] = imgpts[0]
 
     dist01_x = scaleFactor * ( imgpts[1][0] - imgpts[0][0] )
     dist01_y = scaleFactor * ( imgpts[1][1] - imgpts[0][1] )
     corners[1] = ( int( corners[0][0] + dist01_x ), int( corners[0][1] + dist01_y ) )
-    dist12_x = coefInconnu * dist01_x
-    dist12_y = coefInconnu * dist01_y
-    corners[2] = ( int( corners[1][0] + dist12_x ), int( corners[1][1] + dist12_y ) )
-    dist23_x = coefInconnu * dist12_x
-    dist23_y = coefInconnu * dist12_y
-    corners[3] = ( int( corners[2][0] + dist23_x ), int( corners[2][1] + dist23_y ) )
 
     dist04_x = scaleFactor * ( imgpts[3][0] - imgpts[0][0] )
     dist04_y = scaleFactor * ( imgpts[3][1] - imgpts[0][1] )
     corners[4] = ( int( corners[0][0] + dist04_x ), int( corners[0][1] + dist04_y ) )
-    dist48_x = coefInconnu * dist04_x
-    dist48_y = coefInconnu * dist04_y
-    corners[8] = ( int( corners[4][0] + dist48_x ), int( corners[4][1] + dist48_y ) )
-    dist812_x = coefInconnu * dist48_x
-    dist812_y = coefInconnu * dist48_y
-    corners[12] = ( int( corners[8][0] + dist812_x ), int( corners[8][1] + dist812_y ) )
 
-    # Get the intersection point between 01 and 23
-    intersection0123 = self.intersection0123
-    # Get the intersection point between 12 and 30
-    intersection1230 = self.intersection1230
+    corners[5] = _getIntersectionPoint( [corners[1], intersection1230], [corners[4], intersection0123] )
+    dist15_x = int( corners[5][0] - corners[1][0] )
+    dist15_y = int( corners[5][1] - corners[1][1] )
+    dist45_x = int( corners[5][0] - corners[4][0] )
+    dist45_y = int( corners[5][1] - corners[4][1] )
+
+    long15 = sqrt( dist15_x * dist15_x + dist15_y * dist15_y )
+    long45 = sqrt( dist45_x * dist45_x + dist45_y * dist45_y )
+    long01 = sqrt( dist01_x * dist01_x + dist01_y * dist01_y )
+    long04 = sqrt( dist04_x * dist04_x + dist04_y * dist04_y )
+    thalesRatio1504 = long15 / long04
+    thalesRatio4501 = long45 / long01
+
+    dist12_x = thalesRatio4501 * dist01_x
+    dist12_y = thalesRatio4501 * dist01_y
+    corners[2] = ( int( corners[1][0] + dist12_x ), int( corners[1][1] + dist12_y ) )
+    dist23_x = thalesRatio4501 * dist12_x
+    dist23_y = thalesRatio4501 * dist12_y
+    corners[3] = ( int( corners[2][0] + dist23_x ), int( corners[2][1] + dist23_y ) )
+
+    dist48_x = thalesRatio1504 * dist04_x
+    dist48_y = thalesRatio1504 * dist04_y
+    corners[8] = ( int( corners[4][0] + dist48_x ), int( corners[4][1] + dist48_y ) )
+    dist812_x = thalesRatio1504 * dist48_x
+    dist812_y = thalesRatio1504 * dist48_y
+    corners[12] = ( int( corners[8][0] + dist812_x ), int( corners[8][1] + dist812_y ) )
 
     corners[13] = _getIntersectionPoint( [corners[1], intersection1230], [corners[12], intersection0123] )
     corners[14] = _getIntersectionPoint( [corners[2], intersection1230], [corners[12], intersection0123] )
@@ -97,7 +112,6 @@ def _generatePlateCorners( self, imgpts ):
     corners[10] = _getIntersectionPoint( [corners[2], intersection1230], [corners[8], intersection0123] )
     corners[11] = _getIntersectionPoint( [corners[3], intersection1230], [corners[8], intersection0123] )
 
-    corners[5] = _getIntersectionPoint( [corners[1], intersection1230], [corners[4], intersection0123] )
     corners[6] = _getIntersectionPoint( [corners[2], intersection1230], [corners[4], intersection0123] )
     corners[7] = _getIntersectionPoint( [corners[3], intersection1230], [corners[4], intersection0123] )
 
