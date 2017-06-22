@@ -8,6 +8,9 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
 )
+find_package(OpenCV)
+# find_package(OpenCV 2 REQUIRED) #If you have OpenCV2 installed and the the ROS OpenCV3
+
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -115,6 +118,7 @@ catkin_package(
 include_directories(
   ${catkin_INCLUDE_DIRS}
 )
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 ## Declare a C++ library
 # add_library(args
