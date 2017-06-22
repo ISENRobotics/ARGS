@@ -12,7 +12,7 @@ export ROS_HOSTNAME=IP_ROBOT
 Sur le robot:  
  - roslaunch turtlebot_bringup minimal.launch // Démarre roscore  
  - roslaunch turtlebot_bringup 3dsensor.launch // Démarre la kinect  
- - roslaunch usb_cam-test.launch // Démarre le node de la caméra USB sur le TurtleBot qui stream la scène  
+ - roslaunch usb_cam usb_cam-test.launch // Démarre le node de la caméra USB sur le TurtleBot qui stream la scène  
  - rosrun args script/augmented_reality.py // Pour le lancement du node de realitée augmentée  
  - rosrun web_video_server web_video_server // Démarre le serveur vidéo sur le TurtleBot qui stream la scène  
  - rosrun args server_web.py // Demarre le serveur web python pour lancer l'IHM  
