@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*
 
 import cgi
@@ -80,7 +80,7 @@ html = """<!doctype html>
         <div class="row">
         	<div class="col-xs-offset-3 wow fadeInLeft delay-05s">
 							<iframe width="620" height="480"
-										src="http://192.168.2.126:8182/stream?topic=/usb_cam/image_raw&type=ros_compressed">
+										src="http://192.168.2.126:8182/stream?topic=/augmented_reality_output/image_raw&type=ros_compressed">
 										<!--
                                         http://192.168.2.126:8182/stream?topic=/augmented_reality_output/image_raw&type=ros_compressed
 										http://192.168.2.126:8182/stream?topic=/usb_cam/image_raw&type=ros_compressed
