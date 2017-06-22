@@ -27,6 +27,7 @@ import rospy
 
 # Ros Messages
 from sensor_msgs.msg import CompressedImage
+from std_msgs.msg import *
 # We do not use cv_bridge it does not support CompressedImage in python
 # from cv_bridge import CvBridge, CvBridgeError
 
@@ -42,10 +43,11 @@ colorC = (242, 38, 19)
 colorR = (30, 130, 76)
 borderColor = (154,18,179)
 img_treatment_freq = 1000000000 # 1 s
-mean_size = 30
+mean_size = 6
 
 inputImagesTopic = "/usb_cam/image_raw/compressed"
 ouputImagesTopic = "/augmented_reality_output/image_raw/compressed"
+inputActionTopic = "/Case_Jeu"
 
 showWindow = False
 VERBOSE = False
@@ -253,27 +255,21 @@ def _getIntersectionPoint( seg1, seg2 ):
     return [ intersection_x, intersection_y ]
 
 
-def _play(action, img, imgpts):
-    case = int(action[2])
+def _draw_action_played(image_np, self):
+    i = 0
+    for player in self.plate:
+        if player:
+            _play(player, i, image_np, self.previous_plateCorners)
+        i = i + 1
 
-    if( action[1] == 'A' ):
-        case += 0
-    elif( action[1] == 'B' ):
-        case += 4
-    elif( action[1] == 'C' ):
-        case += 8
-    else:
-        print "Problem in case detection"
 
-    # Read symbol to play
-    if( action[0] == 'C' ):
+def _play(player, case, img, imgpts):
+    # Color for players
+    if( player == 1 ):
         color = colorC
-    elif( action[0] == 'R' ):
-        color = colorR
     else:
-        print "Problem in form detection"
-        return
-
+        color = colorR
+    # Draw cross
     imgpts = np.float32(imgpts).reshape(-1,2)
     cv2.line(img, tuple(imgpts[case]), tuple(imgpts[case+5]), color, crossWidth)
     cv2.line(img, tuple(imgpts[case+4]), tuple(imgpts[case+1]), color, crossWidth)
@@ -289,20 +285,45 @@ class augmented_reality:
         self.normes01 = deque()
         self.intersections1230 = deque()
         self.normes03 = deque()
+        self.plate = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 
         # Initialize ros publishers and ros subscribers
 
         # topic where we publish
         self.image_pub = rospy.Publisher(ouputImagesTopic, CompressedImage, queue_size = 1)
 
-        # subscribed Topic
-        self.subscriber = rospy.Subscriber(inputImagesTopic, CompressedImage, self.callback,  queue_size = 1)
+        # subscribed camera Topic
+        self.subscriber = rospy.Subscriber(inputImagesTopic, CompressedImage, self.callback, queue_size = 1)
+
+        # subscribed action topic
+        self.action_subscriber = rospy.Subscriber(inputActionTopic, Int8MultiArray, self.action_callback, queue_size = 1)
 
         if VERBOSE :
             print "subscribed to %s" % (inputImagesTopic)
+            print "subscribed to %s" % (inputActionTopic)
 
 
-    # Callback function of subscribed topic
+    # Callback function of subscribed action topic
+    def action_callback(self, ros_data):
+        print "received a spoiler of the game in action_callback"
+        player = 1
+        for case_nb in ros_data.data:
+            # Received case numbers between 0 and 8
+            # Transform it for corners
+            if( case_nb >= 3 and case_nb <= 5 ):
+                case_nb = case_nb + 1
+            elif( case_nb >= 6 and case_nb <= 8 ):
+                case_nb = case_nb + 2
+            # Write in plate
+            self.plate[case_nb] = player
+            # switch player
+            if( player == 1 ):
+                player = 2
+            else:
+                player = 1
+
+
+    # Callback function of subscribed camera topic
     def callback(self, ros_data):
         if VERBOSE :
             print 'received image of type: "%s"' % ros_data.format
@@ -351,13 +372,10 @@ class augmented_reality:
             self.last_treatment = now_ns
 
         if (self.initialized == 1):
+            # Draw plate lines
             _draw(image_np,self.previous_plateCorners)
-            _play("CB2", image_np, self.previous_plateCorners)
-            _play("CB0", image_np, self.previous_plateCorners)
-            _play("CA0", image_np, self.previous_plateCorners)
-            _play("RA1", image_np, self.previous_plateCorners)
-            _play("RC2", image_np, self.previous_plateCorners)
-            _play("RC0", image_np, self.previous_plateCorners)
+            # Draw plate players cross
+            _draw_action_played(image_np,self)
 
 
         # Display image
