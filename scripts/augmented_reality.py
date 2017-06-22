@@ -36,7 +36,7 @@ criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 # config
 chessWidth = 4
 chessHeight = 5
-scaleFactor = 2.19
+scaleFactor = 2.05
 crossWidth = 3
 colorC = (242, 38, 19)
 colorR = (30, 130, 76)
@@ -47,7 +47,7 @@ mean_size = 30
 inputImagesTopic = "/usb_cam/image_raw/compressed"
 ouputImagesTopic = "/augmented_reality_output/image_raw/compressed"
 
-showWindow = True
+showWindow = False
 VERBOSE = False
 
 # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
