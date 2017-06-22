@@ -13,12 +13,10 @@ Sur le robot:
  - roslaunch turtlebot_bringup minimal.launch // Démarre roscore  
  - roslaunch turtlebot_bringup 3dsensor.launch // Démarre la kinect  
  - roslaunch usb_cam-test.launch // Démarre le node de la caméra USB sur le TurtleBot qui stream la scène  
+ - python script/augmented_reality.py // Pour le lancement du node de realitée augmentée  
  - rosrun web_video_server web_video_server // Démarre le serveur vidéo sur le TurtleBot qui stream la scène  
  - python server_web.py // Demarre le serveur web python pour lancer l'IHM  
  - Le serveur est lancé et l'IHM est accessible à l'adresse : http://localhost:8888/index.py  
-
-On the PC:  
-python script/augmented_reality.py  
 
 ## Informations:  
  - L'IHM est paramétrée pour streamer le flux vidéo du topic : /augmented_reality_output/image_raw qui est de type compressed  
