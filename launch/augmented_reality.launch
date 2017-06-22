@@ -1,0 +1,4 @@
+<launch>
+  <node name="augmented_reality" pkg="args" type="augmented_reality.py"/>
+  <node name="server_web" pkg="args" type="server_web.py"/>
+</launch>

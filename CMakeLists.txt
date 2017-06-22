@@ -141,9 +141,6 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 # target_link_libraries(args_node
 #   ${catkin_LIBRARIES}
 # )
-target_link_libraries(args_node
-    ${OpenCV_LIBRARIES}
-)
 
 #############
 ## Install ##
