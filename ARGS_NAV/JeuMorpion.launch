@@ -1,0 +1,6 @@
+<launch>
+  <!-- Nodes -->
+  <node name="Navigation" pkg="ARGS_NAV" type="navigation.py" />
+  <node name="Grille_Jeu" pkg="ARGS_NAV" type="Grille_Jeu.py" />
+  <node name="Jeu_IA" pkg="ARGS_NAV" type="JeuIA.py" />
+</launch>
