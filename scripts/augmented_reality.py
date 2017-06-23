@@ -263,6 +263,26 @@ def _draw_action_played(image_np, self):
         i = i + 1
 
 
+def _readActionFromQueue(self):
+    if( len( self.plate_queue ) > 0 ):
+        case_nb = self.plate_queue.pop()
+    else:
+        return
+    # Received case numbers between 0 and 8
+    # Transform it for corners
+    if( case_nb >= 3 and case_nb <= 5 ):
+        case_nb = case_nb + 1
+    elif( case_nb >= 6 and case_nb <= 8 ):
+        case_nb = case_nb + 2
+    # Write in plate
+    self.plate[case_nb] = self.activePlayer
+    # switch player
+    if( self.activePlayer == 1 ):
+        self.activePlayer = 2
+    else:
+        self.activePlayer = 1
+
+
 def _play(player, case, img, imgpts):
     # Color for players
     if( player == 1 ):
@@ -286,6 +306,8 @@ class augmented_reality:
         self.intersections1230 = deque()
         self.normes03 = deque()
         self.plate = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+        self.plate_queue = deque()
+        self.activePlayer = 1
 
         # Initialize ros publishers and ros subscribers
 
@@ -306,21 +328,8 @@ class augmented_reality:
     # Callback function of subscribed action topic
     def action_callback(self, ros_data):
         print "received a spoiler of the game in action_callback"
-        player = 1
         for case_nb in ros_data.data:
-            # Received case numbers between 0 and 8
-            # Transform it for corners
-            if( case_nb >= 3 and case_nb <= 5 ):
-                case_nb = case_nb + 1
-            elif( case_nb >= 6 and case_nb <= 8 ):
-                case_nb = case_nb + 2
-            # Write in plate
-            self.plate[case_nb] = player
-            # switch player
-            if( player == 1 ):
-                player = 2
-            else:
-                player = 1
+            self.plate_queue.append(case_nb)
 
 
     # Callback function of subscribed camera topic
@@ -367,6 +376,9 @@ class augmented_reality:
                 imgpts = _mean_lines(self, imgpts)
                 plateCorners = _generatePlateCorners(self, imgpts)
                 self.previous_plateCorners = plateCorners
+
+                # play an action from the plate_queue
+                _readActionFromQueue(self)
 
             # Save last treatment
             self.last_treatment = now_ns
